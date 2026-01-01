@@ -7,3 +7,35 @@ Modern distributed systems generate massive volumes of logs across services, mac
 
 ## High-Level Architecture
 Log producers send structured logs to a stateless ingestion service. Logs are buffered through a message queue, processed asynchronously by background workers, and indexed into a search-optimized storage layer. A query API enables fast filtering and time-based searches.
+
+## Core Components
+- **Ingest API** – Accepts logs over HTTP and appends them to the queue
+- **Message Queue** – Buffers logs and decouples ingestion from processing
+- **Indexer Workers** – Normalize and batch logs for efficient indexing
+- **Search Storage** – Stores indexed logs optimized for query performance
+- **Query API** – Exposes search and filtering capabilities
+
+## Design Goals
+- Horizontal scalability
+- At-least-once log delivery
+- Backpressure handling
+- High write throughput
+- Sub-second search latency
+- Failure resilience
+
+## Tech Stack (Planned)
+- Language: Python or Go
+- Queue: Redis Streams or Kafka
+- Storage: OpenSearch / Elasticsearch
+- Containerization: Docker & Docker Compose
+
+## Status
+🚧 In active development. Initial ingestion service and local infrastructure setup in progress.
+
+## Learning Objectives
+This project focuses on building intuition around:
+- Distributed systems design
+- Queue-based architectures
+- Asynchronous processing
+- Indexing and search tradeoffs
+- Reliability and failure handling
