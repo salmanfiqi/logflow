@@ -24,8 +24,8 @@ Log producers send structured logs to a stateless ingestion service. Logs are bu
 - Failure resilience
 
 ## Tech Stack (Planned)
-- Language: Python or Go
-- Queue: Redis Streams or Kafka
+- Language: Python 
+- Queue: Redis Streams potentially Kafka
 - Storage: OpenSearch / Elasticsearch
 - Containerization: Docker & Docker Compose
 
