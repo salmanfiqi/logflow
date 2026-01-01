@@ -23,7 +23,7 @@ Log producers send structured logs to a stateless ingestion service. Logs are bu
 - Sub-second search latency
 - Failure resilience
 
-## Tech Stack (Planned)
+## Tech Stack 
 - Language: Python 
 - Queue: Redis Streams potentially Kafka
 - Storage: OpenSearch / Elasticsearch
