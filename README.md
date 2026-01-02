@@ -1,38 +1,25 @@
 # LogFlow
 
-LogFlow is a distributed, fault tolerant log ingestion and search system designed to handle high-throughput logs from microservices in a scalable and reliable way.
+LogFlow is a distributed, fault-tolerant log ingestion and search system built to explore scalable, production-style logging pipelines.
 
-## Motivation
-Modern distributed systems generate massive volumes of logs across services, machines, and regions. LogFlow explores how production grade logging pipelines ingest, buffer, process, and search logs while remaining resilient to traffic spikes and component failures.
+## Overview
+LogFlow collects structured logs from microservices, buffers them through a message queue, processes them asynchronously, and indexes them for fast search and filtering. The system is designed to remain resilient under traffic spikes and component failures.
 
-## High-Level Architecture
-Log producers send structured logs to a stateless ingestion service. Logs are buffered through a message queue, processed asynchronously by background workers, and indexed into a search-optimized storage layer. A query API enables fast filtering and time-based searches.
+## Architecture
+Producers → Ingest API → Queue → Indexer Workers → Search Storage → Query API
 
-## Core Components
-- **Ingest API** – Accepts logs over HTTP and appends them to the queue
-- **Message Queue** – Buffers logs and decouples ingestion from processing
-- **Indexer Workers** – Normalize and batch logs for efficient indexing
-- **Search Storage** – Stores indexed logs optimized for query performance
-- **Query API** – Exposes search and filtering capabilities
+## Key Properties
+- Stateless ingestion with asynchronous processing
+- Queue-based decoupling and backpressure handling
+- At-least-once delivery semantics
+- Horizontally scalable components
+- Failure-tolerant by design
 
-## Design Goals
-- Horizontal scalability
-- At-least-once log delivery
-- Backpressure handling
-- High write throughput
-- Sub-second search latency
-- Failure resilience
+## Tech Stack
+- Python
+- Redis Streams (Kafka as potential extension)
+- OpenSearch / Elasticsearch
+- Docker & Docker Compose
 
-## Tech Stack 
-- Language: Python 
-- Queue: Redis Streams potentially Kafka
-- Storage: OpenSearch / Elasticsearch
-- Containerization: Docker & Docker Compose
-
-## Learning Objectives
-This project focuses on building intuition around:
-- Distributed systems design
-- Queue-based architectures
-- Asynchronous processing
-- Indexing and search tradeoffs
-- Reliability and failure handling
+## Status
+In active development. See `docs/design.md` for detailed system design and tradeoffs.
