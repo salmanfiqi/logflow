@@ -35,9 +35,11 @@ async def ingest_log(log: LogEvent):
 
     # Create new dic that stores meta data
     enriched_log = {
+        # Returns a dictionary
         **log.model_dump(),
+
         "ingest_ts": datetime.utcnow().isoformat(),
         "event_id": event_id,
     }
-    
+
     return {"status": "accepted", "event_id": event_id}
