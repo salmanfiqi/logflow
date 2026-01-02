@@ -20,17 +20,24 @@ class LogEvent(BaseModel):
     message: str
     trace_id: str | None = None
 
+# Registers function as the handler for HTTPS POST /logs
 @app.post("/logs")
+
 async def ingest_log(log: LogEvent):
     """
     Accepts a single log event
 
     Validates input, assigns unique event id, and returns immidiatley
     """
+
+    # Generate unique id for event; convert to string
     event_id = str(uuid.uuid4())
+
+    # Create new dic that stores meta data
     enriched_log = {
         **log.model_dump(),
         "ingest_ts": datetime.utcnow().isoformat(),
         "event_id": event_id,
     }
+    
     return {"status": "accepted", "event_id": event_id}
