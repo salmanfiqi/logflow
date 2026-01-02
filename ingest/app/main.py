@@ -22,6 +22,11 @@ class LogEvent(BaseModel):
 
 @app.post("/logs")
 async def ingest_log(log: LogEvent):
+    """
+    Accepts a single log event
+
+    Validates input, assigns unique event id, and returns immidiatley
+    """
     event_id = str(uuid.uuid4())
     enriched_log = {
         **log.model_dump(),
