@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Env
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+
+# Docker
+*.pid
+
+# IDE
+.vscode/
+.idea/
