@@ -6,7 +6,7 @@ LogFlow is a distributed, fault-tolerant log ingestion and search system built t
 LogFlow collects structured logs from microservices, buffers them through a message queue, processes them asynchronously, and indexes them for fast search and filtering. The system is designed to remain resilient under traffic spikes and component failures.
 
 ## Architecture
-Producers → Ingest API → Queue → Indexer Workers → Search Storage → Query API
+Producers → Ingest API → Kafka → Indexer Workers → Search Storage → Query API
 
 ## Key Properties
 - Stateless ingestion with asynchronous processing
@@ -17,8 +17,9 @@ Producers → Ingest API → Queue → Indexer Workers → Search Storage → Qu
 
 ## Tech Stack
 - Python
-- Redis Streams (Kafka as potential extension)
-- OpenSearch / Elasticsearch
+- FastAPI
+- Kafka
+- Elastic Search
 - Docker & Docker Compose
 
 ## Status
