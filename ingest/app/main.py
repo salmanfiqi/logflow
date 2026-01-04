@@ -53,3 +53,36 @@ async def ingest_log(log: LogEvent):
     }
 
     return {"status": "accepted", "event_id": event_id}
+
+@app.post("/logs/batch")
+async def ingest_logs_batch(batch: BatchLogRequest):
+    """
+    Accepts a batch of log events
+    
+    Validates input, assings unique event ids to each log event,
+    and return immidiatley
+    """
+
+    ingest_ts = datetime.utcnow().isoformat()
+
+    event_ids = []
+    enriched_logs = []
+
+    for log in batch.logs:
+        # Generate unique id for event; convert to string
+        event_id = str(uuid.uuid4())
+        event_ids.append(event_id)
+
+        enriched_logs.append({
+            # Returns a dictionary
+            **log.model_dump(),
+
+            "ingest_ts": ingest_ts,
+            "event_id": event_id,
+        })
+
+    return {
+        "status": "accepted",
+        "count": len(enriched_logs),
+        "event_ids": event_ids,
+    }
