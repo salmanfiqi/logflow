@@ -2,9 +2,19 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from datetime import datetime
 import uuid
+import json
+from kafka import KafkaProducer
 
 # Create FAST API Instance
 app = FastAPI()
+
+# Global Producer
+producer = KafkaProducer(
+    bootstrap_servers="localhost:29092",  # because FastAPI runs on your Mac
+    value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+)
+
+TOPIC = "logs"
 
 class LogEvent(BaseModel):
     """
@@ -52,6 +62,12 @@ async def ingest_log(log: LogEvent):
         "event_id": event_id,
     }
 
+    try:
+        producer.send(TOPIC, enriched_log)
+        producer.flush(timeout=2)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Kafka publish failed: {e}")
+
     return {"status": "accepted", "event_id": event_id}
 
 @app.post("/logs/batch")
@@ -81,6 +97,13 @@ async def ingest_logs_batch(batch: BatchLogRequest):
             "event_id": event_id,
         })
 
+    try:
+        for enriched in enriched_logs:
+            producer.send(TOPIC, enriched)
+        producer.flush(timeout=5)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Kafka publish failed: {e}")
+    
     return {
         "status": "accepted",
         "count": len(enriched_logs),
