@@ -13,6 +13,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# Database
+logflow.db
+
 # Node
 node_modules/
 
