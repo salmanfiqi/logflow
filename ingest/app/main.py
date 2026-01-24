@@ -4,18 +4,27 @@ from datetime import datetime
 import uuid
 import json
 from kafka import KafkaProducer
+from indexer.db.sqlite import connect, init_db
+import os
 
-# Create FAST API Instance
 app = FastAPI()
 
-# Global Producer
-producer = KafkaProducer(
-    bootstrap_servers="localhost:29092",  # because FastAPI runs on your Mac
-    value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-)
+producer: KafkaProducer | None = None
 
-TOPIC = "logs"
+TOPIC = os.getenv("KAFKA_TOPIC", "logs")
+BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
 
+
+@app.on_event("startup")
+def startup():
+    """
+    Initialize Kafka producer once the app starts.
+    """
+    global producer
+    producer = KafkaProducer(
+        bootstrap_servers=BOOTSTRAP,
+        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+    )
 class LogEvent(BaseModel):
     """
     Schema (Log Event) defintion for a log event sent to ingest API
@@ -40,24 +49,19 @@ class BatchLogRequest(BaseModel):
     """
     logs: list[LogEvent] = Field(min_length=1, max_length=500)
 
-# Registers function as the handler for HTTPS POST /logs
 @app.post("/logs")
-
 async def ingest_log(log: LogEvent):
     """
-    Accepts a single log event
+    Accepts a single log event.
 
-    Validates input, assigns unique event id, and returns immidiatley
+    Validates input, assigns unique event id,
+    publishes to Kafka, and persists to SQLite.
     """
 
-    # Generate unique id for event; convert to string
     event_id = str(uuid.uuid4())
 
-    # Create new dic that stores meta data
     enriched_log = {
-        # Returns a dictionary
         **log.model_dump(),
-
         "ingest_ts": datetime.utcnow().isoformat(),
         "event_id": event_id,
     }
@@ -68,31 +72,59 @@ async def ingest_log(log: LogEvent):
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Kafka publish failed: {e}")
 
+    conn = connect()
+    init_db(conn)  # safe to call repeatedly
+
+    conn.execute(
+        """
+        INSERT INTO logs (
+            event_id,
+            ingest_ts,
+            ts,
+            service,
+            level,
+            message,
+            trace_id,
+            raw_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            enriched_log["event_id"],
+            enriched_log["ingest_ts"],
+            enriched_log["timestamp"],
+            enriched_log["service"],
+            enriched_log["level"],
+            enriched_log["message"],
+            enriched_log.get("trace_id"),
+            json.dumps(enriched_log),
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+
     return {"status": "accepted", "event_id": event_id}
 
 @app.post("/logs/batch")
 async def ingest_logs_batch(batch: BatchLogRequest):
     """
-    Accepts a batch of log events
-    
-    Validates input, assings unique event ids to each log event,
-    and return immidiatley
+    Accepts a batch of log events.
+
+    Assigns unique event IDs, publishes to Kafka,
+    and persists all logs atomically to SQLite.
     """
 
     ingest_ts = datetime.utcnow().isoformat()
-
     event_ids = []
     enriched_logs = []
 
     for log in batch.logs:
-        # Generate unique id for event; convert to string
         event_id = str(uuid.uuid4())
         event_ids.append(event_id)
 
         enriched_logs.append({
-            # Returns a dictionary
             **log.model_dump(),
-
             "ingest_ts": ingest_ts,
             "event_id": event_id,
         })
@@ -103,9 +135,45 @@ async def ingest_logs_batch(batch: BatchLogRequest):
         producer.flush(timeout=5)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Kafka publish failed: {e}")
-    
+
+    conn = connect()
+    init_db(conn)
+
+    conn.executemany(
+        """
+        INSERT INTO logs (
+            event_id,
+            ingest_ts,
+            ts,
+            service,
+            level,
+            message,
+            trace_id,
+            raw_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                e["event_id"],
+                e["ingest_ts"],
+                e["timestamp"],
+                e["service"],
+                e["level"],
+                e["message"],
+                e.get("trace_id"),
+                json.dumps(e),
+            )
+            for e in enriched_logs
+        ],
+    )
+
+    conn.commit()
+    conn.close()
+
     return {
         "status": "accepted",
         "count": len(enriched_logs),
         "event_ids": event_ids,
     }
+
