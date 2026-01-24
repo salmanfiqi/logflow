@@ -1,92 +1,126 @@
-# LogFlow Design Document
+# LogFlow Design Document (MVP)
 
 ## 1. Overview
-LogFlow is a distributed, fault-tolerant log ingestion and search system designed to explore scalable logging pipelines used in production systems. The system decouples log ingestion from storage using a queue to handle traffic spikes and failures gracefully.
+
+LogFlow is a minimal, durable log ingestion and search system designed to explore the core building blocks of production logging pipelines. The system focuses on **correctness, durability, and queryability**, prioritizing a simple and reliable end-to-end flow over scale.
+
+LogFlow is intentionally scoped as an MVP to validate system boundaries, data modeling, and failure behavior before introducing additional distributed components.
+
+---
 
 ## 2. Goals
 
-### Goals
+### Primary Goals
 - Reliably ingest logs from multiple services
-- Decouple ingestion from indexing using a durable queue
+- Ensure logs are durably stored before acknowledgment
 - Support basic search by time range, service, level, and text
-- Handle failures without losing logs
-- Run locally via Docker Compose
+- Provide consistent read-after-write semantics
+- Run locally with minimal operational overhead
+
+### Non-Goals
+- Horizontal scalability at large volumes
+- Exactly-once delivery guarantees
+- Real-time streaming or alerting
+- Distributed search backends
+
+---
 
 ## 3. High-Level Architecture
 
-### Components
-- **Ingest API:** Stateless HTTP service that validates and enriches logs before appending them to the queue.
-- **Queue:** Durable buffer that decouples ingestion from processing and supports replay on failure.
-- **Indexer Workers:** Consume logs from the queue, batch them, and bulk index into storage.
-- **Search Storage:** Index-optimized store supporting time-based and full-text search.
-- **Query API:** Read-only API for querying logs with filters and pagination.
+### MVP Architecture
+Client
+↓
+Ingest API (FastAPI)
+↓
+SQLite (WAL mode, indexed)  ← source of truth
+↑
+Search API (FastAPI)
 
-## 4. Data Model
+---
 
-### Log Event Schema
+## Components
+
+### Ingest API
+- Stateless HTTP service
+- Validates and enriches incoming logs
+- Persists logs durably before returning success
+
+### Storage
+- SQLite database with WAL enabled
+- Indexed for efficient filtering and time-based queries
+
+### Search API
+- Read-only HTTP API
+- Executes parameterized SQL queries
+- Supports filtering and pagination
+
+---
+
+## Data Model
+
+### Log Event
 
 Required fields:
-- `timestamp` (ISO 8601)
-- `service` (string)
-- `level` (DEBUG | INFO | WARN | ERROR)
-- `message` (string)
+- `timestamp`
+- `service`
+- `level`
+- `message`
 
 Optional fields:
 - `trace_id`
-- `request_id`
-- `host`
-- `env`
 
-Enriched by ingestion:
+Enriched at ingestion:
 - `ingest_ts`
-- `event_id` (optional, used for idempotency)
+- `event_id`
 
-## 5. Interfaces
+---
 
-### Ingest API
-- `POST /logs`
-  - Accepts a single JSON log event
-  - Returns success after appending to the queue
+## Interfaces
 
-### Query API
-- `GET /search`
-  - Query parameters: `service`, `level`, `q`, `from`, `to`, `limit`
+### `POST /logs`
+- Accepts a single log event
+- Persists the log durably
+- Returns an acknowledgment
 
-## 6. Delivery Semantics
+### `POST /logs/batch`
+- Accepts multiple log events
+- Persists logs atomically
 
-LogFlow provides **at-least-once delivery**.
-- Logs may be processed more than once
-- Log loss is minimized
-- Indexer workers acknowledge queue messages only after successful indexing
+### `GET /search`
+Query parameters:
+- `service`
+- `level`
+- `q` (text search)
+- `from` / `to` (time range)
+- `limit`, `offset`
 
-Duplicate logs are acceptable in v1. Optional idempotency can be achieved using `event_id` as the document identifier.
+Results are returned newest first.
 
-## 7. Failure Handling and Backpressure
+---
 
-- If an indexer worker crashes, unacknowledged messages remain in the queue and are replayed.
-- If search storage is slow or unavailable, workers retry with backoff.
-- Queue backlog serves as the primary backpressure signal.
-- Ingest API remains responsive as long as the queue can accept messages.
+## Delivery & Failure Semantics
 
-## 8. Scaling Model
+- Logs are acknowledged only after durable persistence
+- Read-after-write consistency is guaranteed
+- WAL mode ensures durability across crashes
+- No in-memory state is required for correctness
 
-- Ingest API scales horizontally due to statelessness.
-- Indexer workers scale via consumer groups.
-- The queue absorbs traffic spikes.
-- Search storage scales independently of ingestion.
+---
 
-## 9. Technology Choices
+## Technology Choices
 
-- **Language:** Python
-- **Queue:** Redis Streams
-- **Search Storage:** OpenSearch / Elasticsearch
+- Python
+- FastAPI
+- Pydantic
+- SQLite (WAL mode)
+- Docker Compose
 
-Redis Streams was chosen for development speed and reliable queue semantics in v1. Kafka is a potential future replacement.
+---
 
-## 10. MVP Completion Criteria
+## MVP Completion
 
-The MVP is considered complete when:
-- Logs sent to the Ingest API appear in search results
-- End-to-end flow works under Docker Compose
-- Logs can be queried by time range, service, and text
-- Worker failures do not result in log loss
+The MVP is complete when:
+- Logs are durably stored
+- Logs are immediately searchable
+- Filters and pagination work as expected
+- The system runs end-to-end locally
