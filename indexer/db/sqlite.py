@@ -1,6 +1,8 @@
 import os
 import sqlite3
 from pathlib import Path
+import os
+from kafka.errors import NoBrokersAvailable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
